@@ -1,15 +1,15 @@
 package com.docgen.ingest;
-
+import com.docgen.ingest.openapi.OpenApiExtractor;
 import com.docgen.core.ApiSpec;
 import com.docgen.core.Endpoint;
 import com.docgen.ingest.spring.SpringControllerExtractor;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import com.docgen.core.Schema;
 import java.util.stream.Stream;
 
 // Percorre o projeto inteiro e entrega cada arquivo ao leitor que o entende.
@@ -23,7 +23,7 @@ public class ProjectScanner {
     private final List<EndpointExtractor> extractors;
 
     public ProjectScanner() {
-        this(List.of(new SpringControllerExtractor()));
+        this(List.of(new SpringControllerExtractor(), new OpenApiExtractor()));
     }
 
     public ProjectScanner(List<EndpointExtractor> extractors) {
@@ -39,21 +39,29 @@ public class ProjectScanner {
                     .sorted()
                     .toList();
         }
-
+        // Listas que vão reunir todos os endpoints e schemas encontrados no projeto.
         List<Endpoint> endpoints = new ArrayList<>();
+        List<Schema> schemas = new ArrayList<>();
+        for (EndpointExtractor extractor : extractors) {
+            extractor.prepare(files);
+        }
+        // Prepara cada leitor com a lista completa de arquivos do projeto.
+        // Isso permite que o leitor construa um contexto antes de iniciar a extração.
         for (Path file : files) {
             for (EndpointExtractor extractor : extractors) {
                 if (!extractor.supports(file)) {
                     continue;
                 }
                 try {
-                    endpoints.addAll(extractor.extract(file));
+                    ExtractionResult result = extractor.extract(file);
+                    endpoints.addAll(result.endpoints());
+                    schemas.addAll(result.schemas());
                 } catch (IllegalArgumentException e) {
                     System.err.println("Ignorando " + file + ": " + e.getMessage());
                 }
             }
         }
-        return new ApiSpec(apiName, endpoints, List.of());
+        return new ApiSpec(apiName, endpoints, SchemaPruner.prune(endpoints, schemas));
     }
 
     private boolean isInIgnoredDir(Path root, Path file) {

@@ -1,8 +1,6 @@
 package com.docgen.ingest.spring;
-import com.docgen.core.ApiParameter;
-import com.docgen.core.Endpoint;
-import com.docgen.core.HttpMethod;
-import com.docgen.core.ParameterLocation;
+import com.docgen.core.*;
+import com.docgen.ingest.ExtractionResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
@@ -19,7 +17,7 @@ class SpringControllerExtractorTest {
         Path fixture = Path.of(getClass()
                 .getResource("/fixtures/library/controller/BookController.java")
                 .toURI());
-        endpoints = new SpringControllerExtractor().extract(fixture);
+        endpoints = new SpringControllerExtractor().extract(fixture).endpoints();
     }
 
     private Endpoint byHandler(String handlerName) {
@@ -43,7 +41,7 @@ class SpringControllerExtractorTest {
 
     @Test
     void shouldExtractReturnTypes() {
-        assertThat(byHandler("list").returnType()).isEqualTo("List<BookDto>");
+        assertThat(byHandler("list").returnType()).isEqualTo("array<BookDto>");
         assertThat(byHandler("findById").returnType()).isEqualTo("BookDto");
         assertThat(byHandler("delete").returnType()).isEqualTo("void");
     }
@@ -53,7 +51,7 @@ class SpringControllerExtractorTest {
         ApiParameter author = byHandler("list").parameters().get(0);
 
         assertThat(author.name()).isEqualTo("author");
-        assertThat(author.type()).isEqualTo("String");
+        assertThat(author.type()).isEqualTo("string");
         assertThat(author.location()).isEqualTo(ParameterLocation.QUERY);
         assertThat(author.required()).isFalse();
     }
@@ -75,5 +73,49 @@ class SpringControllerExtractorTest {
         assertThat(extractor.supports(Path.of("BookController.java"))).isTrue();
         assertThat(extractor.supports(Path.of("users.py"))).isFalse();
         assertThat(extractor.framework()).isEqualTo("Spring");
+    }
+    @Test
+    void shouldExtractRecordSchemaWithValidationAndPrimitiveRequired() throws Exception {
+        Path file = Path.of(getClass()
+                .getResource("/fixtures/library/dto/CreateBookRequest.java").toURI());
+
+        ExtractionResult result = new SpringControllerExtractor().extract(file);
+
+        assertThat(result.endpoints()).isEmpty();
+        assertThat(result.schemas()).hasSize(1);
+        Schema schema = result.schemas().get(0);
+        assertThat(schema.name()).isEqualTo("CreateBookRequest");
+        assertThat(schema.fields())
+                .extracting(SchemaField::name, SchemaField::type, SchemaField::required)
+                .containsExactly(
+                        tuple("title", "string", true),
+                        tuple("author", "string", true),
+                        tuple("year", "integer(int32)", true)
+                );
+    }
+
+    @Test
+    void shouldTreatNonPrimitiveFieldsWithoutValidationAsOptional() throws Exception {
+        Path file = Path.of(getClass()
+                .getResource("/fixtures/library/dto/BookDto.java").toURI());
+
+        Schema schema = new SpringControllerExtractor().extract(file).schemas().get(0);
+
+        assertThat(schema.fields())
+                .extracting(SchemaField::name, SchemaField::required)
+                .containsExactly(
+                        tuple("id", false),
+                        tuple("title", false),
+                        tuple("author", false),
+                        tuple("year", true)
+                );
+    }
+
+    @Test
+    void shouldNotCreateSchemaForControllers() throws Exception {
+        Path file = Path.of(getClass()
+                .getResource("/fixtures/library/controller/BookController.java").toURI());
+
+        assertThat(new SpringControllerExtractor().extract(file).schemas()).isEmpty();
     }
 }

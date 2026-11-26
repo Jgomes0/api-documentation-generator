@@ -1,5 +1,4 @@
 package com.docgen.ingest;
-import com.docgen.core.Endpoint;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -11,7 +10,19 @@ public interface EndpointExtractor {
     /** Diz se este leitor sabe analisar o arquivo informado. */
     boolean supports(Path file);
 
+    /**
+     * Prepara o leitor com os arquivos disponíveis no projeto.
+     * Implementações que não precisam dessa preparação podem ignorar.
+     */
+    default void prepare(List<Path> files) throws IOException {
+    }
+
     /** Lê o arquivo e devolve os endpoints encontrados. */
-    List<Endpoint> extract(Path file) throws IOException;
+    ExtractionResult extract(Path file) throws IOException;
+
+    /** Prioridade dos schemas deste leitor quando dois leitores encontram o mesmo nome. Maior vence. */
+    default int priority() {
+        return 0;
+    }
 }
 

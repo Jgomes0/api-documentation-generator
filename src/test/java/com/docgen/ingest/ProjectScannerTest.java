@@ -1,7 +1,5 @@
 package com.docgen.ingest;
-import com.docgen.core.ApiSpec;
-import com.docgen.core.Endpoint;
-import com.docgen.core.HttpMethod;
+import com.docgen.core.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -21,6 +19,21 @@ class ProjectScannerTest {
 
         assertThat(spec.name()).isEqualTo("Library API");
         assertThat(spec.endpoints()).hasSize(4);
+        assertThat(spec.schemas())
+                .extracting(Schema::name)
+                .containsExactlyInAnyOrder("BookDto", "CreateBookRequest");
+    }
+
+    @Test
+    void shouldIncludeInheritedFieldsInSchemas() throws Exception {
+        Path root = Path.of(getClass().getResource("/fixtures/inheritance").toURI());
+
+        ApiSpec spec = new ProjectScanner().scan(root, "Inheritance API");
+
+        assertThat(spec.schemas()).extracting(Schema::name).containsExactly("Owner");
+        assertThat(spec.schemas().get(0).fields())
+                .extracting(SchemaField::name)
+                .containsExactly("id", "firstName", "lastName", "city");
     }
 
     @Test
@@ -33,6 +46,14 @@ class ProjectScannerTest {
         assertThat(spec.endpoints()).hasSize(1);
         assertThat(spec.endpoints().get(0).path()).isEqualTo("/fake");
     }
+    @Test
+    void shouldFindEndpointsInOpenApiFile() throws Exception {
+        Path root = Path.of(getClass().getResource("/fixtures/openapi").toURI());
+
+        ApiSpec spec = new ProjectScanner().scan(root, "Library API");
+
+        assertThat(spec.endpoints()).hasSize(4);
+    }
 
     @Test
     void shouldIgnoreBuildFolders(@TempDir Path dir) throws Exception {
@@ -43,6 +64,7 @@ class ProjectScannerTest {
 
         assertThat(spec.endpoints()).isEmpty();
     }
+
 
     // Leitor de mentira, só para provar que o scanner funciona com qualquer leitor.
     private static class FakeExtractor implements EndpointExtractor {
@@ -56,11 +78,10 @@ class ProjectScannerTest {
         public boolean supports(Path file) {
             return file.getFileName().toString().endsWith(".fake");
         }
-
         @Override
-        public List<Endpoint> extract(Path file) {
-            return List.of(new Endpoint(
-                    HttpMethod.GET, "/fake", "FakeController", "fake", List.of(), "void", null));
+        public ExtractionResult extract(Path file) {
+            return ExtractionResult.ofEndpoints(List.of(new Endpoint(
+                    HttpMethod.GET, "/fake", "FakeController", "fake", List.of(), "void", null)));
         }
     }
 }

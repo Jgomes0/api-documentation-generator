@@ -1,0 +1,99 @@
+openapi: 3.0.3
+info:
+  title: Library API
+  version: 1.0.0
+paths:
+  /api/books:
+    get:
+      tags: [Books]
+      operationId: listBooks
+      summary: Lista os livros
+      parameters:
+        - name: author
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de livros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookDto'
+    post:
+      tags: [Books]
+      operationId: createBook
+      summary: Cadastra um livro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookRequest'
+      responses:
+        '201':
+          description: Livro criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookDto'
+  /api/books/{id}:
+    get:
+      tags: [Books]
+      operationId: getBook
+      summary: Busca um livro pelo id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Livro encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookDto'
+    delete:
+      tags: [Books]
+      operationId: deleteBook
+      summary: Remove um livro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Livro removido
+components:
+  schemas:
+    BookDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        author:
+          type: string
+        year:
+          type: integer
+    CreateBookRequest:
+      type: object
+      required: [title, author, year]
+      properties:
+        title:
+          type: string
+        author:
+          type: string
+        year:
+          type: integer

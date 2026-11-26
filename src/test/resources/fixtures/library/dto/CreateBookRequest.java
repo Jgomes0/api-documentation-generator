@@ -1,3 +1,4 @@
 package fixtures.library.dto;
-public record CreateBookRequest(String title, String author, int year) {
+import jakarta.validation.constraints.NotBlank;
+public record CreateBookRequest(@NotBlank String title, @NotBlank String author, int year) {
 }
